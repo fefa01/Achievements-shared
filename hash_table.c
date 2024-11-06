@@ -18,6 +18,17 @@
  * =========================================
  */
 
+struct elem
+{
+    int integer;
+    bool boolean;
+    float floater;
+    unsigned int unint;
+    void *p;
+    char *str;
+};
+
+typedef struct elem elem_t; //jag la till så man kan köra
 typedef struct entry entry_t;
 
 struct entry
@@ -36,6 +47,7 @@ struct hash_table
   ioopm_eq_function value_eq_func;
 };
 
+//Förklara gärna mer vad det är för strukt, vad är target_elem samt eq_args_t?
 typedef struct {
   ioopm_eq_function eq_func;
   elem_t target_elem;
@@ -64,7 +76,7 @@ static entry_t *entry_create(elem_t key, elem_t value, entry_t *next){
   return new_entry;
 }
 
-/// @brief Destroys a linked list of entries starting from the given entry.
+/// @brief fis a linked list of entries starting from the given entry.
 /// @param entry The starting entry of the linked list to destroy.
 static void entry_destroy(entry_t *entry){
   while(entry){
@@ -117,7 +129,7 @@ static bool value_match(elem_t key, elem_t value, void *extra){
 ioopm_hash_table_t *ioopm_hash_table_create(ioopm_hash_function hash_func, ioopm_eq_function key_eq_func, ioopm_eq_function value_eq_func){
   ioopm_hash_table_t *ht = calloc(1, sizeof(ioopm_hash_table_t));
   if(!ht) return NULL;
-
+  //Känns som att ha en dummy node för varje bucket göra ht onödigt stort?
   for(size_t i = 0; i < No_Buckets; ++i){
     ht->buckets[i] = entry_create(int_elem(0), ptr_elem(NULL), NULL);
   }
@@ -166,15 +178,18 @@ option_t ioopm_hash_table_lookup(ioopm_hash_table_t *ht, elem_t key){
 }
 
 option_t ioopm_hash_table_remove(ioopm_hash_table_t *ht, elem_t key){
-  entry_t *dummy = ht->buckets[ht->hash_func(key) % No_Buckets];
+  entry_t *dummy = ht->buckets[ht->hash_func(key) % No_Buckets]; //segfault om ht->buckets är null?
+
   entry_t *prev = dummy;
   entry_t *current = prev->next;
 
+//hur hanteras det om det är den första bucketen som ska bort?
   while(current){
     if(ht->key_eq_func(current->key, key)){
       prev->next = current->next;
       elem_t value = current->value;
       free(current);
+      //Sätta current till NULL? förebygga för ev. dangling pointers
       ht->size -= 1;
       return Success(value);
     }
@@ -258,6 +273,8 @@ bool ioopm_hash_table_has_value(ioopm_hash_table_t *ht, elem_t value){
 
 bool ioopm_hash_table_any(ioopm_hash_table_t *ht, ioopm_predicate pred, void *arg){
   if(!ht || !pred) return false;
+  //Kan vara förvirrande utan att ha ngt felmeddelande som säger vad som är fel för !ht eller !pred
+  // då kanske inte användaren vet om det inte fanns någon som matchade predikatet eller om det ör ett tomt ht exempelvis
 
   for(size_t i = 0; i < No_Buckets; ++i){
     entry_t *entry = ht->buckets[i]->next;
@@ -278,6 +295,7 @@ bool ioopm_hash_table_all(ioopm_hash_table_t *ht, ioopm_predicate pred, void *ar
 
   for(size_t i = 0; i < No_Buckets; ++i){
     entry_t *entry = ht->buckets[i]->next;
+
     while(entry){
       if(!pred(entry->key, entry->value, arg)){
         return false;
