@@ -30,6 +30,7 @@ struct entry
   entry_t *next;
 };
 
+
 struct hash_table
 {
   entry_t *buckets[No_Buckets];   
