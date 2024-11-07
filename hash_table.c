@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "hash_table.h"
+#include "linked_list.h"
 
 /*
  * =========================================
@@ -18,17 +19,8 @@
  * =========================================
  */
 
-struct elem
-{
-    int integer;
-    bool boolean;
-    float floater;
-    unsigned int unint;
-    void *p;
-    char *str;
-};
 
-typedef struct elem elem_t; //jag la till så man kan köra
+
 typedef struct entry entry_t;
 
 struct entry
@@ -67,7 +59,10 @@ typedef struct {
 /// @return A pointer to the newly created entry, or NULL if memory allocation fails.
 static entry_t *entry_create(elem_t key, elem_t value, entry_t *next){
   entry_t *new_entry = calloc(1, sizeof(entry_t));
-  if(!new_entry) return NULL;
+  if(!new_entry){
+    printf("memory allocation for new entry failed");
+    return NULL;
+  } 
 
   new_entry->key = key;
   new_entry->value = value;
@@ -76,7 +71,7 @@ static entry_t *entry_create(elem_t key, elem_t value, entry_t *next){
   return new_entry;
 }
 
-/// @brief fis a linked list of entries starting from the given entry.
+/// @brief finds a linked list of entries starting from the given entry.
 /// @param entry The starting entry of the linked list to destroy.
 static void entry_destroy(entry_t *entry){
   while(entry){
@@ -125,6 +120,15 @@ static bool value_match(elem_t key, elem_t value, void *extra){
 }
 
 
+/// @brief Calculates the bucket index for a given key in the hash table.
+/// @param ht Pointer to the hash table.
+/// @param key The key whose bucket index is to be calculated.
+/// @return The index of the bucket where the key should be stored.
+static inline int calculate_bucket_idx(ioopm_hash_table_t *ht, elem_t key) {
+    return (ht->hash_func(key) % No_Buckets + No_Buckets) % No_Buckets; 
+}
+
+
 
 ioopm_hash_table_t *ioopm_hash_table_create(ioopm_hash_function hash_func, ioopm_eq_function key_eq_func, ioopm_eq_function value_eq_func){
   ioopm_hash_table_t *ht = calloc(1, sizeof(ioopm_hash_table_t));
@@ -152,7 +156,7 @@ void ioopm_hash_table_destroy(ioopm_hash_table_t *ht) {
 }
 
 void ioopm_hash_table_insert(ioopm_hash_table_t *ht, elem_t key, elem_t value) {
-  int bucket = ((ht->hash_func(key) % No_Buckets) + No_Buckets) % No_Buckets;
+  int bucket = calculate_bucket_idx(ht, key);
 
   entry_t *entry = find_previous_entry_for_key(ht->buckets[bucket], key, ht->key_eq_func);
   entry_t *next = entry->next;
@@ -167,7 +171,8 @@ void ioopm_hash_table_insert(ioopm_hash_table_t *ht, elem_t key, elem_t value) {
 }
 
 option_t ioopm_hash_table_lookup(ioopm_hash_table_t *ht, elem_t key){
-  entry_t *tmp = find_previous_entry_for_key(ht->buckets[ht->hash_func(key) % No_Buckets], key, ht->key_eq_func);
+  int bucket = calculate_bucket_idx(ht, key);
+  entry_t *tmp = find_previous_entry_for_key(ht->buckets[bucket], key, ht->key_eq_func);
   entry_t *next = tmp->next;
 
   if(next && ht->key_eq_func(next->key, key)){
@@ -178,6 +183,11 @@ option_t ioopm_hash_table_lookup(ioopm_hash_table_t *ht, elem_t key){
 }
 
 option_t ioopm_hash_table_remove(ioopm_hash_table_t *ht, elem_t key){
+  if(!ht){
+    printf("finns inget ht att ta bort från");
+    return Failure();
+  }
+
   entry_t *dummy = ht->buckets[ht->hash_func(key) % No_Buckets]; //segfault om ht->buckets är null?
 
   entry_t *prev = dummy;
@@ -189,6 +199,7 @@ option_t ioopm_hash_table_remove(ioopm_hash_table_t *ht, elem_t key){
       prev->next = current->next;
       elem_t value = current->value;
       free(current);
+      current = NULL; // change
       //Sätta current till NULL? förebygga för ev. dangling pointers
       ht->size -= 1;
       return Success(value);
@@ -272,7 +283,15 @@ bool ioopm_hash_table_has_value(ioopm_hash_table_t *ht, elem_t value){
 }
 
 bool ioopm_hash_table_any(ioopm_hash_table_t *ht, ioopm_predicate pred, void *arg){
-  if(!ht || !pred) return false;
+  if(!ht) {
+    printf("Ht är tomt");
+    return false;
+    }
+
+    if(!pred){
+      printf("predikat funktionen är fel eller inget alls");
+      return false;
+    }
   //Kan vara förvirrande utan att ha ngt felmeddelande som säger vad som är fel för !ht eller !pred
   // då kanske inte användaren vet om det inte fanns någon som matchade predikatet eller om det ör ett tomt ht exempelvis
 

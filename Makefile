@@ -48,6 +48,8 @@ test: all
 	./linked_list_test
 	./iterator_test
 
+ht_test: all
+		./hash_table_test
 # Rensa upp byggda filer
 clean:
 	rm -rf *.o *.gcda *.gcno *.gcov *.d *.out massif.out.* cachegrind.out.* hash_table_test linked_list_test iterator_test freq-count
